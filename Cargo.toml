@@ -1,4 +1,5 @@
 [workspace]
+members = ["syntax"]
 
 [package]
 name = "witch-hazel"
