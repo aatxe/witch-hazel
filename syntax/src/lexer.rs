@@ -1,6 +1,12 @@
 use logos::{Lexer, Logos};
 
-#[derive(Logos, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct LexError;
+
+pub type LexResult<'source> = Result<Token<'source>, LexError>;
+
+#[derive(Logos, Clone, Debug, PartialEq)]
+#[logos(error = LexError)]
 pub enum Token<'source> {
     // identifiers and whitespace
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_-]*", |lex| lex.slice())]
