@@ -201,6 +201,27 @@ mod tests {
     }
 
     #[test]
+    fn parse_kebab_case_identifier() {
+        let result = lex("foo-bar").collect::<Vec<_>>();
+        assert_eq!(result, vec![Ok(Token::Identifier("foo-bar")),]);
+    }
+
+    #[test]
+    fn spaces_around_minus_are_subtraction() {
+        let result = lex("foo - bar").collect::<Vec<_>>();
+        assert_eq!(
+            result,
+            vec![
+                Ok(Token::Identifier("foo")),
+                Ok(Token::Whitespace(" ")),
+                Ok(Token::Minus),
+                Ok(Token::Whitespace(" ")),
+                Ok(Token::Identifier("bar")),
+            ]
+        );
+    }
+
+    #[test]
     fn lex_a_function_definition() {
         let result = lex("function name(a, b) return a + b end").collect::<Vec<_>>();
         assert_eq!(
