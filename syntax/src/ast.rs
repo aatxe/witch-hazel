@@ -13,6 +13,17 @@ pub enum BinaryOperator {
     Divide,
     /// `//`
     FloorDivide,
+    /// `%`,
+    Modulo,
+    /// `^`
+    Exponentiation,
+    /// `..`
+    Concat,
+
+    /// `and`
+    And,
+    /// `or`
+    Or,
 
     /// `==`
     Equals,
