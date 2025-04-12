@@ -11,8 +11,10 @@ pub enum Token<'source> {
     // identifiers and whitespace
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_-]*", |lex| lex.slice())]
     Identifier(&'source str),
-    #[regex(r#"\s+"#, |lex| lex.slice())]
+    #[regex(r#"[ \t]+"#, |lex| lex.slice())]
     Whitespace(&'source str),
+    #[regex(r#"(\r\n|\r|\n)"#)]
+    NewLine,
 
     // literals
     #[token("false", |_| false)]
@@ -266,7 +268,8 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Ok(Token::Whitespace("\n        ")),
+                Ok(Token::NewLine),
+                Ok(Token::Whitespace("        ")),
                 Ok(Token::ReservedFunction),
                 Ok(Token::Whitespace(" ")),
                 Ok(Token::Identifier("name")),
@@ -276,7 +279,8 @@ mod tests {
                 Ok(Token::Whitespace(" ")),
                 Ok(Token::Identifier("b")),
                 Ok(Token::ParenClose),
-                Ok(Token::Whitespace("\n            ")),
+                Ok(Token::NewLine),
+                Ok(Token::Whitespace("            ")),
                 Ok(Token::ReservedReturn),
                 Ok(Token::Whitespace(" ")),
                 Ok(Token::Identifier("a")),
@@ -284,7 +288,8 @@ mod tests {
                 Ok(Token::Plus),
                 Ok(Token::Whitespace(" ")),
                 Ok(Token::Identifier("b")),
-                Ok(Token::Whitespace("\n        ")),
+                Ok(Token::NewLine),
+                Ok(Token::Whitespace("        ")),
                 Ok(Token::ReservedEnd),
             ]
         )

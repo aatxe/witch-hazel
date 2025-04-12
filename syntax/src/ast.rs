@@ -46,15 +46,15 @@ pub enum Type<'alloc> {
 
 #[derive(Debug, PartialEq)]
 pub struct Binding<'alloc> {
-    name: String<'alloc>,
-    ty: Type<'alloc>,
+    pub name: String<'alloc>,
+    pub ty: Option<Type<'alloc>>,
 }
 
 pub type Bindings<'alloc> = Vec<'alloc, Binding<'alloc>>;
 
 #[derive(Debug, PartialEq)]
 pub struct Block<'alloc> {
-    expressions: Vec<'alloc, Expression<'alloc>>,
+    pub expressions: Vec<'alloc, Expression<'alloc>>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -76,6 +76,7 @@ pub enum Expression<'alloc> {
 
     /// A function expression.
     Function {
+        name: Option<String<'alloc>>,
         parameters: Bindings<'alloc>,
         body: Block<'alloc>,
     },
