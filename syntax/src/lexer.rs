@@ -12,9 +12,9 @@ pub enum Token<'source> {
     #[regex(r"\p{XID_Start}[\p{XID_Continue}-]*", |lex| lex.slice())]
     Identifier(&'source str),
     #[regex(r#"[[:blank:]]+"#, |lex| lex.slice())]
-    Whitespace(&'source str),
+    HorizontalWhitespace(&'source str),
     #[regex(r#"[\n\v\f\r\x85\u2028\u2029]"#, |lex| lex.slice())]
-    NewLine(&'source str),
+    VerticalWhitespace(&'source str),
 
     // literals
     #[token("false", |_| false)]
@@ -153,9 +153,9 @@ mod tests {
             result,
             vec![
                 Ok(Token::NumberLiteral(2.0)),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Plus),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::NumberLiteral(2.0)),
             ]
         );
@@ -168,9 +168,9 @@ mod tests {
             result,
             vec![
                 Ok(Token::Identifier("foo")),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Plus),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::NumberLiteral(2.0)),
             ]
         );
@@ -183,9 +183,9 @@ mod tests {
             result,
             vec![
                 Ok(Token::Identifier("foo")),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Plus),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("bar")),
             ]
         );
@@ -199,9 +199,9 @@ mod tests {
             vec![
                 Ok(Token::ParenOpen),
                 Ok(Token::Identifier("foo")),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Plus),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("bar")),
                 Ok(Token::ParenClose),
             ]
@@ -245,9 +245,9 @@ mod tests {
             result,
             vec![
                 Ok(Token::Identifier("foo")),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Minus),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("bar")),
             ]
         );
@@ -260,23 +260,23 @@ mod tests {
             result,
             vec![
                 Ok(Token::ReservedFunction),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("name")),
                 Ok(Token::ParenOpen),
                 Ok(Token::Identifier("a")),
                 Ok(Token::Comma),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("b")),
                 Ok(Token::ParenClose),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::ReservedReturn),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("a")),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Plus),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("b")),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::ReservedEnd),
             ]
         )
@@ -292,28 +292,28 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Ok(Token::NewLine("\n")),
-                Ok(Token::Whitespace("        ")),
+                Ok(Token::VerticalWhitespace("\n")),
+                Ok(Token::HorizontalWhitespace("        ")),
                 Ok(Token::ReservedFunction),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("name")),
                 Ok(Token::ParenOpen),
                 Ok(Token::Identifier("a")),
                 Ok(Token::Comma),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("b")),
                 Ok(Token::ParenClose),
-                Ok(Token::NewLine("\n")),
-                Ok(Token::Whitespace("            ")),
+                Ok(Token::VerticalWhitespace("\n")),
+                Ok(Token::HorizontalWhitespace("            ")),
                 Ok(Token::ReservedReturn),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("a")),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Plus),
-                Ok(Token::Whitespace(" ")),
+                Ok(Token::HorizontalWhitespace(" ")),
                 Ok(Token::Identifier("b")),
-                Ok(Token::NewLine("\n")),
-                Ok(Token::Whitespace("        ")),
+                Ok(Token::VerticalWhitespace("\n")),
+                Ok(Token::HorizontalWhitespace("        ")),
                 Ok(Token::ReservedEnd),
             ]
         )
