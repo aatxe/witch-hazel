@@ -9,7 +9,7 @@ pub type LexResult<'source> = Result<Token<'source>, LexError>;
 #[logos(error = LexError)]
 pub enum Token<'source> {
     // identifiers and whitespace
-    #[regex(r"[a-zA-Z_][a-zA-Z0-9_-]*", |lex| lex.slice())]
+    #[regex(r"\p{XID_Start}[\p{XID_Continue}-]*", |lex| lex.slice())]
     Identifier(&'source str),
     #[regex(r#"[ \t]+"#, |lex| lex.slice())]
     Whitespace(&'source str),
@@ -209,9 +209,33 @@ mod tests {
     }
 
     #[test]
-    fn parse_kebab_case_identifier() {
+    fn lex_kebab_case_identifier() {
         let result = lex("foo-bar").collect::<Vec<_>>();
         assert_eq!(result, vec![Ok(Token::Identifier("foo-bar")),]);
+    }
+
+    #[test]
+    fn lex_greek_identifier() {
+        let result = lex("αβγ").collect::<Vec<_>>();
+        assert_eq!(result, vec![Ok(Token::Identifier("αβγ")),]);
+    }
+
+    #[test]
+    fn lex_chinese_identifier() {
+        let result = lex("你好").collect::<Vec<_>>();
+        assert_eq!(result, vec![Ok(Token::Identifier("你好")),]);
+    }
+
+    #[test]
+    fn lex_thai_identifier() {
+        let result = lex("สวัสดี").collect::<Vec<_>>();
+        assert_eq!(result, vec![Ok(Token::Identifier("สวัสดี")),]);
+    }
+
+    #[test]
+    fn lex_arabic_identifier() {
+        let result = lex("مرحبا").collect::<Vec<_>>();
+        assert_eq!(result, vec![Ok(Token::Identifier("مرحبا")),]);
     }
 
     #[test]
