@@ -3,6 +3,7 @@ use crate::{
     lexer::{LexResult, Token},
 };
 use bumpalo::{
+    boxed::Box,
     collections::{String, Vec},
     Bump,
 };
@@ -23,6 +24,13 @@ pub enum ParseError<'source> {
     ExpectedIdentifier(LexResult<'source>, Span),
     ExpectedNewLineOrSemicolon(LexResult<'source>, Span),
     UnexpectedToken(LexResult<'source>, Span),
+
+    ExpectedClosingBracket {
+        expected: Token<'source>,
+        opening_span: Span,
+        found: LexResult<'source>,
+        span: Span,
+    },
 }
 
 pub type ParseResult<'source, T> = Result<T, ParseError<'source>>;
@@ -94,6 +102,7 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
             Some((Ok(Token::Identifier(ident)), _)) => Expression::Identifier {
                 value: String::from_str_in(ident, self.allocator),
             },
+
             Some((Ok(token), span)) => {
                 self.errors
                     .borrow_mut()
@@ -101,6 +110,7 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
 
                 Expression::Error
             }
+
             Some((Err(_), span)) => {
                 self.errors
                     .borrow_mut()
@@ -108,6 +118,7 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
 
                 Expression::Error
             }
+
             None => {
                 self.errors.borrow_mut().push(ParseError::UnexpectedEof);
 
@@ -122,7 +133,7 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
         let mut bindings = Vec::new_in(self.allocator);
 
         match self.next() {
-            Some((Ok(Token::ParenOpen), _)) => {
+            Some((Ok(Token::ParenOpen), opening_span)) => {
                 self.skip_whitespace();
 
                 if let Some((Ok(Token::ParenClose), _)) = self.peek() {
@@ -149,7 +160,12 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
                         Some((Ok(token), span)) => {
                             self.errors
                                 .borrow_mut()
-                                .push(ParseError::UnexpectedToken(Ok(token), span));
+                                .push(ParseError::ExpectedClosingBracket {
+                                    expected: Token::ParenClose,
+                                    opening_span,
+                                    found: Ok(token),
+                                    span,
+                                });
                             break;
                         }
                         Some((Err(_), span)) => {
@@ -257,30 +273,274 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
         Block { expressions }
     }
 
+    // argument_list ::= '(' expression { ',' expression } ')'
+    pub fn parse_argument_list(&self) -> Expressions<'alloc> {
+        self.skip_whitespace();
+
+        let mut arguments = Vec::new_in(self.allocator);
+
+        match self.next() {
+            Some((Ok(Token::ParenOpen), _)) => {
+                self.skip_whitespace();
+
+                if let Some((Ok(Token::ParenClose), _)) = self.peek() {
+                    self.advance();
+                    return arguments;
+                }
+
+                while let Some((Ok(token), _)) = self.peek() {
+                    if token == Token::ParenClose {
+                        self.advance();
+                        return arguments;
+                    }
+
+                    if token == Token::Comma {
+                        self.advance();
+                        continue;
+                    }
+
+                    let expression = self.parse_expression();
+                    arguments.push(expression);
+                    self.skip_whitespace();
+                }
+            }
+
+            Some((Ok(token), span)) => {
+                self.errors
+                    .borrow_mut()
+                    .push(ParseError::UnexpectedToken(Ok(token), span));
+            }
+
+            Some((Err(_), span)) => {
+                self.errors
+                    .borrow_mut()
+                    .push(ParseError::IllegalToken(span));
+            }
+
+            None => {
+                self.errors.borrow_mut().push(ParseError::UnexpectedEof);
+            }
+        }
+
+        arguments
+    }
+
     pub fn parse_expression(&self) -> Expression<'alloc> {
         self.parse_simple_expression()
     }
 
-    pub fn parse_primary_expression(&self) -> Expression<'alloc> {
-        self.parse_simple_expression()
+    // prefix_expression ::= NAME | '(' expression ')'
+    pub fn parse_prefix_expression(&self) -> Expression<'alloc> {
+        self.skip_whitespace();
+
+        if let Some((Ok(Token::ParenOpen), opening_span)) = self.peek() {
+            self.advance();
+
+            self.skip_whitespace();
+            let expression = self.parse_expression();
+            self.skip_whitespace();
+
+            return match self.next() {
+                Some((Ok(Token::ParenClose), _)) => expression,
+
+                Some((Ok(token), span)) => {
+                    self.errors
+                        .borrow_mut()
+                        .push(ParseError::ExpectedClosingBracket {
+                            expected: Token::ParenClose,
+                            opening_span,
+                            found: Ok(token),
+                            span,
+                        });
+                    Expression::Error
+                }
+
+                Some((Err(_), span)) => {
+                    self.errors
+                        .borrow_mut()
+                        .push(ParseError::IllegalToken(span));
+                    Expression::Error
+                }
+
+                None => {
+                    self.errors.borrow_mut().push(ParseError::UnexpectedEof);
+                    Expression::Error
+                }
+            };
+        }
+
+        self.parse_identifier()
     }
 
+    // primary_expression ::= prefix_expression { '.' NAME | '[' expression ']' | ':' NAME parameter_list | parameter_list }
+    pub fn parse_primary_expression(&self) -> Expression<'alloc> {
+        let mut expression = self.parse_prefix_expression();
+        self.skip_whitespace();
+
+        loop {
+            match self.peek() {
+                Some((Ok(Token::Dot), _)) => {
+                    self.advance();
+                    self.skip_whitespace();
+
+                    match self.next() {
+                        Some((Ok(Token::Identifier(name)), _)) => {
+                            let name = String::from_str_in(name, self.allocator);
+                            expression = Expression::IndexName {
+                                operator: IndexOperator::Dot,
+                                expression: Box::new_in(expression, self.allocator),
+                                name,
+                            };
+                        }
+
+                        Some((Ok(token), span)) => {
+                            self.errors
+                                .borrow_mut()
+                                .push(ParseError::ExpectedIdentifier(Ok(token), span));
+                        }
+
+                        Some((Err(_), span)) => {
+                            self.errors
+                                .borrow_mut()
+                                .push(ParseError::IllegalToken(span));
+                        }
+
+                        None => {
+                            self.errors.borrow_mut().push(ParseError::UnexpectedEof);
+                        }
+                    }
+                }
+
+                Some((Ok(Token::Colon), _)) => {
+                    self.advance();
+                    self.skip_whitespace();
+
+                    match self.next() {
+                        Some((Ok(Token::Identifier(name)), _)) => {
+                            let name = String::from_str_in(name, self.allocator);
+                            expression = Expression::IndexName {
+                                operator: IndexOperator::Colon,
+                                expression: Box::new_in(expression, self.allocator),
+                                name,
+                            };
+
+                            let arguments = self.parse_argument_list();
+                            expression = Expression::Call {
+                                function: Box::new_in(expression, self.allocator),
+                                arguments,
+                            };
+                        }
+
+                        Some((Ok(token), span)) => {
+                            self.errors
+                                .borrow_mut()
+                                .push(ParseError::ExpectedIdentifier(Ok(token), span));
+                        }
+
+                        Some((Err(_), span)) => {
+                            self.errors
+                                .borrow_mut()
+                                .push(ParseError::IllegalToken(span));
+                        }
+
+                        None => {
+                            self.errors.borrow_mut().push(ParseError::UnexpectedEof);
+                        }
+                    }
+                }
+
+                Some((Ok(Token::BracketOpen), opening_span)) => {
+                    self.advance();
+                    let index = self.parse_expression();
+                    self.skip_whitespace();
+
+                    match self.next() {
+                        Some((Ok(Token::BracketClose), _)) => {
+                            expression = Expression::IndexExpression {
+                                expression: Box::new_in(expression, self.allocator),
+                                index: Box::new_in(index, self.allocator),
+                            };
+                        }
+
+                        Some((Ok(token), span)) => {
+                            self.errors
+                                .borrow_mut()
+                                .push(ParseError::ExpectedClosingBracket {
+                                    expected: Token::BracketClose,
+                                    opening_span,
+                                    found: Ok(token),
+                                    span,
+                                });
+                        }
+
+                        Some((Err(_), span)) => {
+                            self.errors
+                                .borrow_mut()
+                                .push(ParseError::IllegalToken(span));
+                        }
+
+                        None => {
+                            self.errors.borrow_mut().push(ParseError::UnexpectedEof);
+                        }
+                    }
+                }
+
+                Some((Ok(Token::ParenOpen), _)) => {
+                    let arguments = self.parse_argument_list();
+                    expression = Expression::Call {
+                        function: Box::new_in(expression, self.allocator),
+                        arguments,
+                    };
+                }
+
+                Some((Ok(_), _)) => {
+                    break;
+                }
+
+                Some((Err(_), span)) => {
+                    self.errors
+                        .borrow_mut()
+                        .push(ParseError::IllegalToken(span));
+                    break;
+                }
+
+                None => {
+                    break;
+                }
+            }
+        }
+
+        expression
+    }
+
+    // function_expression ::= ('function' | 'fn') [NAME] '(' parameter_list ')' block
+    // simple_expression ::= NUMBER | 'true' | 'false' | 'nil' | function_expression | primary_expression
     pub fn parse_simple_expression(&self) -> Expression<'alloc> {
         // skip leading whitespace
         self.skip_whitespace();
 
-        match self.next() {
+        match self.peek() {
             // literal numbers
-            Some((Ok(Token::NumberLiteral(value)), _)) => Expression::NumberLiteral { value },
+            Some((Ok(Token::NumberLiteral(value)), _)) => {
+                self.advance();
+                Expression::NumberLiteral { value }
+            }
 
             // `true` or `false`
-            Some((Ok(Token::BooleanLiteral(value)), _)) => Expression::BooleanLiteral { value },
+            Some((Ok(Token::BooleanLiteral(value)), _)) => {
+                self.advance();
+                Expression::BooleanLiteral { value }
+            }
 
             // `nil`
-            Some((Ok(Token::ReservedNil), _)) => Expression::NilLiteral,
+            Some((Ok(Token::ReservedNil), _)) => {
+                self.advance();
+                Expression::NilLiteral
+            }
 
             // function expression
             Some((Ok(Token::ReservedFunction | Token::ReservedFn), _)) => {
+                self.advance();
                 self.skip_whitespace();
 
                 let name = match self.peek() {
@@ -308,14 +568,12 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
                 self.errors
                     .borrow_mut()
                     .push(ParseError::IllegalToken(span));
-
                 Expression::Error
             }
 
             // unexpected EOF
             None => {
                 self.errors.borrow_mut().push(ParseError::UnexpectedEof);
-
                 Expression::Error
             }
         }

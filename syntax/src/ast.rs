@@ -2,6 +2,15 @@ use bumpalo::boxed::Box;
 use bumpalo::collections::{String, Vec};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum IndexOperator {
+    /// `.`
+    Dot,
+
+    /// `:`
+    Colon,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum BinaryOperator {
     /// `+`
     Add,
@@ -51,10 +60,12 @@ pub struct Binding<'alloc> {
 }
 
 pub type Bindings<'alloc> = Vec<'alloc, Binding<'alloc>>;
+pub type Expressions<'alloc> = Vec<'alloc, Expression<'alloc>>;
+pub type BoxedExpression<'alloc> = Box<'alloc, Expression<'alloc>>;
 
 #[derive(Debug, PartialEq)]
 pub struct Block<'alloc> {
-    pub expressions: Vec<'alloc, Expression<'alloc>>,
+    pub expressions: Expressions<'alloc>,
 }
 
 #[derive(Debug, PartialEq)]
@@ -71,7 +82,26 @@ pub enum Expression<'alloc> {
     /// A number literal value.
     NumberLiteral { value: f64 },
 
-    /// A block expression
+    /// A function call expression.
+    Call {
+        function: Box<'alloc, Expression<'alloc>>,
+        arguments: Expressions<'alloc>,
+    },
+
+    /// An expression indexed by a name.
+    IndexName {
+        operator: IndexOperator,
+        expression: BoxedExpression<'alloc>,
+        name: String<'alloc>,
+    },
+
+    /// An expression indexed by an expression.
+    IndexExpression {
+        expression: BoxedExpression<'alloc>,
+        index: BoxedExpression<'alloc>,
+    },
+
+    /// A block expression.
     DoBlock { body: Block<'alloc> },
 
     /// A function expression.
@@ -84,8 +114,8 @@ pub enum Expression<'alloc> {
     /// A binary operation.
     BinaryOperation {
         operator: BinaryOperator,
-        left: Box<'alloc, Expression<'alloc>>,
-        right: Box<'alloc, Expression<'alloc>>,
+        left: BoxedExpression<'alloc>,
+        right: BoxedExpression<'alloc>,
     },
 
     /// An erroneous expression.

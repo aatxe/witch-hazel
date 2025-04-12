@@ -26,7 +26,7 @@ fn parse_nil_literal() {
     let allocator = Bump::new();
     let parser = Parser::new(lexer, &allocator);
 
-    let result = parser.parse_simple_expression();
+    let result = parser.parse_expression();
     let errors = parser.errors.into_inner();
 
     assert_eq!(errors, Vec::new_in(&allocator));
@@ -40,7 +40,7 @@ fn parse_boolean_literal() {
     let allocator = Bump::new();
     let parser = Parser::new(lexer, &allocator);
 
-    let result = parser.parse_simple_expression();
+    let result = parser.parse_expression();
     assert!(parser.no_errors());
     assert_eq!(result, Expression::BooleanLiteral { value: true });
 
@@ -49,7 +49,7 @@ fn parse_boolean_literal() {
     let allocator = Bump::new();
     let parser = Parser::new(lexer, &allocator);
 
-    let result = parser.parse_simple_expression();
+    let result = parser.parse_expression();
     let errors = parser.errors.into_inner();
 
     assert_eq!(errors, Vec::new_in(&allocator));
@@ -63,7 +63,7 @@ fn parse_number_literal() {
     let allocator = Bump::new();
     let parser = Parser::new(lexer, &allocator);
 
-    let result = parser.parse_simple_expression();
+    let result = parser.parse_expression();
     let errors = parser.errors.into_inner();
 
     assert_eq!(errors, Vec::new_in(&allocator));
@@ -77,7 +77,7 @@ fn parse_function_expression() {
     let allocator = Bump::new();
     let parser = Parser::new(lexer, &allocator);
 
-    let result = parser.parse_simple_expression();
+    let result = parser.parse_expression();
     let errors = parser.errors.into_inner();
 
     assert_eq!(errors, Vec::new_in(&allocator));
@@ -102,7 +102,7 @@ fn parse_multiline_function() {
     let mut body = Vec::new_in(&allocator);
     body.push(Expression::NumberLiteral { value: 4f64 });
 
-    let result = parser.parse_simple_expression();
+    let result = parser.parse_expression();
     let errors = parser.errors.into_inner();
 
     assert_eq!(errors, Vec::new_in(&allocator));
@@ -133,7 +133,7 @@ fn parse_function_with_arguments() {
         ty: None,
     });
 
-    let result = parser.parse_simple_expression();
+    let result = parser.parse_expression();
     let errors = parser.errors.into_inner();
 
     assert_eq!(errors, Vec::new_in(&allocator));
@@ -169,7 +169,7 @@ fn parse_multiline_function_with_arguments() {
     let mut body = Vec::new_in(&allocator);
     body.push(Expression::NumberLiteral { value: 4f64 });
 
-    let result = parser.parse_simple_expression();
+    let result = parser.parse_expression();
     let errors = parser.errors.into_inner();
 
     assert_eq!(errors, Vec::new_in(&allocator));
@@ -179,6 +179,189 @@ fn parse_multiline_function_with_arguments() {
             name: Some(String::from_str_in("foo", &allocator)),
             parameters,
             body: Block { expressions: body }
+        }
+    );
+}
+
+#[test]
+fn parse_index_expression() {
+    let source = "foo[bar]";
+    let lexer = Lexer::new(source);
+    let allocator = Bump::new();
+    let parser = Parser::new(lexer, &allocator);
+
+    let result = parser.parse_expression();
+    let errors = parser.errors.into_inner();
+
+    assert_eq!(errors, Vec::new_in(&allocator));
+    assert_eq!(
+        result,
+        Expression::IndexExpression {
+            expression: Box::new_in(
+                Expression::Identifier {
+                    value: String::from_str_in("foo", &allocator)
+                },
+                &allocator
+            ),
+            index: Box::new_in(
+                Expression::Identifier {
+                    value: String::from_str_in("bar", &allocator)
+                },
+                &allocator
+            )
+        }
+    );
+}
+
+#[test]
+fn parse_index_name_expression() {
+    let source = "foo.bar";
+    let lexer = Lexer::new(source);
+    let allocator = Bump::new();
+    let parser = Parser::new(lexer, &allocator);
+
+    let result = parser.parse_expression();
+    let errors = parser.errors.into_inner();
+
+    assert_eq!(errors, Vec::new_in(&allocator));
+    assert_eq!(
+        result,
+        Expression::IndexName {
+            operator: IndexOperator::Dot,
+            expression: Box::new_in(
+                Expression::Identifier {
+                    value: String::from_str_in("foo", &allocator)
+                },
+                &allocator
+            ),
+            name: String::from_str_in("bar", &allocator)
+        }
+    );
+}
+
+#[test]
+fn parse_trivial_function_call() {
+    let source = "foo()";
+    let lexer = Lexer::new(source);
+    let allocator = Bump::new();
+    let parser = Parser::new(lexer, &allocator);
+
+    let result = parser.parse_expression();
+    let errors = parser.errors.into_inner();
+
+    assert_eq!(errors, Vec::new_in(&allocator));
+    assert_eq!(
+        result,
+        Expression::Call {
+            function: Box::new_in(
+                Expression::Identifier {
+                    value: String::from_str_in("foo", &allocator)
+                },
+                &allocator
+            ),
+            arguments: Vec::new_in(&allocator)
+        }
+    );
+}
+
+#[test]
+fn parse_function_call() {
+    let source = "foo(bar, baz)";
+    let lexer = Lexer::new(source);
+    let allocator = Bump::new();
+    let parser = Parser::new(lexer, &allocator);
+
+    let mut arguments = Vec::new_in(&allocator);
+    arguments.push(Expression::Identifier {
+        value: String::from_str_in("bar", &allocator),
+    });
+    arguments.push(Expression::Identifier {
+        value: String::from_str_in("baz", &allocator),
+    });
+
+    let result = parser.parse_expression();
+    let errors = parser.errors.into_inner();
+
+    assert_eq!(errors, Vec::new_in(&allocator));
+    assert_eq!(
+        result,
+        Expression::Call {
+            function: Box::new_in(
+                Expression::Identifier {
+                    value: String::from_str_in("foo", &allocator)
+                },
+                &allocator
+            ),
+            arguments
+        }
+    );
+}
+
+#[test]
+fn parse_trivial_method_call() {
+    let source = "foo:bar()";
+    let lexer = Lexer::new(source);
+    let allocator = Bump::new();
+    let parser = Parser::new(lexer, &allocator);
+
+    let result = parser.parse_expression();
+    let errors = parser.errors.into_inner();
+
+    assert_eq!(errors, Vec::new_in(&allocator));
+    assert_eq!(
+        result,
+        Expression::Call {
+            function: Box::new_in(
+                Expression::IndexName {
+                    operator: IndexOperator::Colon,
+                    expression: Box::new_in(
+                        Expression::Identifier {
+                            value: String::from_str_in("foo", &allocator)
+                        },
+                        &allocator
+                    ),
+                    name: String::from_str_in("bar", &allocator)
+                },
+                &allocator
+            ),
+            arguments: Vec::new_in(&allocator)
+        }
+    );
+}
+
+#[test]
+fn parse_method_call() {
+    let source = "foo:bar(baz)";
+    let lexer = Lexer::new(source);
+    let allocator = Bump::new();
+    let parser = Parser::new(lexer, &allocator);
+
+    let mut arguments = Vec::new_in(&allocator);
+    arguments.push(Expression::Identifier {
+        value: String::from_str_in("baz", &allocator),
+    });
+
+    let result = parser.parse_expression();
+    let errors = parser.errors.into_inner();
+
+    assert_eq!(errors, Vec::new_in(&allocator));
+    assert_eq!(
+        result,
+        Expression::Call {
+            function: Box::new_in(
+                Expression::IndexName {
+                    operator: IndexOperator::Colon,
+                    expression: Box::new_in(
+                        Expression::Identifier {
+                            value: String::from_str_in("foo", &allocator)
+                        },
+                        &allocator
+                    ),
+                    name: String::from_str_in("bar", &allocator)
+                },
+                &allocator
+            ),
+            arguments
         }
     );
 }
