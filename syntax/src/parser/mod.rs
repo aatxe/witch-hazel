@@ -191,7 +191,6 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
             return true;
         };
 
-        println!("should end at? {:?}", lexeme);
         lexeme == Token::ReservedEnd
             || lexeme == Token::ReservedElse
             || lexeme == Token::ReservedElseif
@@ -304,7 +303,7 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
 
             Some((Ok(_), _)) => self.parse_primary_expression(),
 
-            // illegal tokens become error expressions, should probably surface some error as well
+            // illegal tokens become error expressions
             Some((Err(_), span)) => {
                 self.errors
                     .borrow_mut()
