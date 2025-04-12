@@ -83,7 +83,7 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
     }
 
     fn skip_whitespace(&self) {
-        while let Some((Ok(Token::Whitespace(_) | Token::NewLine), _)) = self.peek() {
+        while let Some((Ok(Token::Whitespace(_) | Token::NewLine(_)), _)) = self.peek() {
             self.advance();
         }
     }
@@ -230,7 +230,7 @@ impl<'alloc, 'source> Parser<'alloc, 'source> {
             self.skip_horizontal_whitespace();
 
             match self.peek() {
-                Some((Ok(Token::NewLine | Token::SemiColon), _)) => {
+                Some((Ok(Token::NewLine(_) | Token::SemiColon), _)) => {
                     self.advance();
                 }
 

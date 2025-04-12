@@ -11,10 +11,10 @@ pub enum Token<'source> {
     // identifiers and whitespace
     #[regex(r"\p{XID_Start}[\p{XID_Continue}-]*", |lex| lex.slice())]
     Identifier(&'source str),
-    #[regex(r#"[ \t]+"#, |lex| lex.slice())]
+    #[regex(r#"[[:blank:]]+"#, |lex| lex.slice())]
     Whitespace(&'source str),
-    #[regex(r#"(\r\n|\r|\n)"#)]
-    NewLine,
+    #[regex(r#"[\n\v\f\r\x85\u2028\u2029]"#, |lex| lex.slice())]
+    NewLine(&'source str),
 
     // literals
     #[token("false", |_| false)]
@@ -292,7 +292,7 @@ mod tests {
         assert_eq!(
             result,
             vec![
-                Ok(Token::NewLine),
+                Ok(Token::NewLine("\n")),
                 Ok(Token::Whitespace("        ")),
                 Ok(Token::ReservedFunction),
                 Ok(Token::Whitespace(" ")),
@@ -303,7 +303,7 @@ mod tests {
                 Ok(Token::Whitespace(" ")),
                 Ok(Token::Identifier("b")),
                 Ok(Token::ParenClose),
-                Ok(Token::NewLine),
+                Ok(Token::NewLine("\n")),
                 Ok(Token::Whitespace("            ")),
                 Ok(Token::ReservedReturn),
                 Ok(Token::Whitespace(" ")),
@@ -312,7 +312,7 @@ mod tests {
                 Ok(Token::Plus),
                 Ok(Token::Whitespace(" ")),
                 Ok(Token::Identifier("b")),
-                Ok(Token::NewLine),
+                Ok(Token::NewLine("\n")),
                 Ok(Token::Whitespace("        ")),
                 Ok(Token::ReservedEnd),
             ]
